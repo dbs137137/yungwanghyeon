@@ -679,7 +679,7 @@
         </section>
         <section class="card hidden" id="competitionPanel">
             <h2>팀 대항전 점수판</h2>
-            <p class="small">처음에는 2팀이 표시됩니다. ‘팀 추가’로 필요한 만큼 팀을 늘릴 수 있으며, 각 팀 선수 3명의 성별·체중·최고 기록을 입력하면 팀 합계와 순위가 자동 갱신됩니다. 3번 선수 추가 필요 중량은 선수 1·2의 점수를 고정하고 현재 1위 팀 합계를 넘기기 위해 필요한 추가 정수 kg을 계산합니다. 우리 팀을 선택하면 점수판에서 강조 표시됩니다.</p>
+            <p class="small">처음에는 2팀이 표시됩니다. ‘팀 추가’로 필요한 만큼 팀을 늘릴 수 있으며, 각 팀 선수 3명의 성별·체중·최고 기록을 입력하면 팀 합계와 순위가 자동 갱신됩니다. 선수 2번과 3번의 체중을 입력하면 다른 두 선수의 현재 점수를 기준으로 1위 팀을 넘기기 위해 필요한 총 기록(kg)을 각각 표시합니다. 우리 팀을 선택하면 점수판에서 강조 표시됩니다.</p>
             <div class="fields" style="margin-bottom:14px">
                 <div>
                     <label for="ourTeam">우리 팀 선택</label>
@@ -695,6 +695,7 @@
             </div>
             <div class="result" style="margin-top:18px">
                 <h3 style="margin:0 0 8px">실시간 순위</h3>
+                <p class="small" id="stageSummary" style="margin:0 0 8px"></p>
                 <div style="overflow-x:auto">
                     <table id="leaderboard" style="width:100%;border-collapse:collapse;min-width:520px">
                         <thead>
@@ -703,8 +704,9 @@
                                 <th style="text-align:left;padding:9px;border-bottom:1px solid var(--line)">팀</th>
                                 <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">합계 (pts)</th>
                                 <th style="text-align:left;padding:9px;border-bottom:1px solid var(--line)">선수 명단</th>
-                                <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">3번 선수 추가 필요 중량</th>
-                                <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">입력 선수</th>
+                                <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">2번 선수 필요 기록</th>
+                                <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">3번 선수 필요 기록</th>
+                                <th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">현재 라운드</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboardBody"></tbody>
@@ -925,34 +927,48 @@
             if (el.parentElement && el.parentElement.querySelector('#athletes'))
                 el.classList.toggle('hidden', m === 4);
         });
+        const athleteScore = a => {
+            const bw = Number(a.bw),
+                lift = Number(a.lift);
+            if (a.bw === '' || a.lift === '' || !(bw > 0 && bw <= 250) || lift < 0 || lift > 500)
+                return NaN;
+            const score = calcScore(Number(a.gender), bw, lift);
+            return Number.isFinite(score) ? score : NaN;
+        };
+        // 진행 단계: 모든 팀의 1번 기록 완료 후 순위를 시작하고, 2번 완료 후 3번 라운드로 이동
+        let completedRounds = 0;
+        for (let ai = 0; ai < 3; ai++) {
+            if (teamData.every(team => Number.isFinite(athleteScore(team.athletes[ai]))))
+                completedRounds++;
+            else
+                break;
+        }
+        const rankAvailable = completedRounds >= 1;
+        const roundsToShow = rankAvailable ? Math.min(3, completedRounds + 1) : 0;
+        const currentAthlete = Math.min(completedRounds, 2);
         const scores = teamData.map((team, ti) => {
             let sum = 0,
                 entered = 0;
             team.athletes.forEach((a, ai) => {
-                const bw = Number(a.bw),
-                    lift = Number(a.lift),
-                    valid = a.bw !== '' && a.lift !== '' && bw > 0 && bw <= 250 && lift >= 0 && lift <= 500;
-                let score = NaN;
-                if (valid) {
-                    score = calcScore(Number(a.gender), bw, lift);
-                    if (Number.isFinite(score)) {
-                        sum += score;
-                        entered++;
-                    }
-                }
+                const score = athleteScore(a);
                 const scoreEl = document.getElementById(`cs${ti}_${ai}`);
                 if (scoreEl)
                     scoreEl.textContent = Number.isFinite(score) ? score.toFixed(3) : '—';
+                if (ai < roundsToShow && Number.isFinite(score)) {
+                    sum += score;
+                    entered++;
+                }
             });
             const tag = document.getElementById(`teamTag${ti}`);
             if (tag)
-                tag.textContent = `합계: ${entered ? sum.toFixed(3) : '—'} pts`;
+                tag.textContent = `현재 합계: ${rankAvailable ? sum.toFixed(3) : '—'} pts`;
+            const roundScore = athleteScore(team.athletes[currentAthlete]);
             return {
                 ti,
                 name: team.name || `팀 ${ti + 1}`,
                 sum,
                 entered,
-                complete: entered === 3
+                roundEntered: Number.isFinite(roundScore)
             };
         }).sort((a, b) => b.sum - a.sum);
         leaderboardBody.innerHTML = '';
@@ -962,38 +978,74 @@
             if (s.ti === Number(ourTeamSelect.value))
                 tr.className = 'our-team';
             const roster = teamData[s.ti].athletes.map((a, ai) => a.name.trim() || `선수 ${ai + 1}`).join(', ');
-            tr.innerHTML = `<td style="padding:9px;border-bottom:1px solid var(--line)">${s.entered ? index + 1 : '—'}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${escapeHtml(s.name)}${s.ti === Number(ourTeamSelect.value) ? ' ★' : ''}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${s.entered ? s.sum.toFixed(3) : '—'}</td><td style="padding:9px;border-bottom:1px solid var(--line);font-size:.85rem">${escapeHtml(roster)}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">계산 중</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${s.entered}/3</td>`;
+            tr.innerHTML = `<td style="padding:9px;border-bottom:1px solid var(--line)">${rankAvailable ? index + 1 : '—'}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${escapeHtml(s.name)}${s.ti === Number(ourTeamSelect.value) ? ' ★' : ''}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${rankAvailable ? s.sum.toFixed(3) : '—'}</td><td style="padding:9px;border-bottom:1px solid var(--line);font-size:.85rem">${escapeHtml(roster)}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${completedRounds >= 1 ? '계산 중' : '1번 선수 완료 후 표시'}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${completedRounds >= 1 ? '계산 중' : '2번 기록 입력 후 표시'}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${s.roundEntered ? '완료' : '대기'}</td>`;
             leaderboardBody.appendChild(tr);
         });
-        const leader = scores.find(s => s.entered === 3);
-        const leaderScore = leader ? leader.sum : null;
-        // 선수 1·2의 점수는 고정하고, 3번 선수가 현재 1위 팀 합계를 넘기기 위해 필요한 추가 정수 kg 계산
-        scores.forEach(s => {
-            const row = [...leaderboardBody.children].find(r => r.dataset.team === String(s.ti));
-            if (!row)
-                return;
-            const cell = row.children[4];
-            const third = teamData[s.ti].athletes[2];
-            const firstTwo = teamData[s.ti].athletes.slice(0, 2);
-            const firstTwoValid = firstTwo.every(a => a.bw !== '' && a.lift !== '' && Number(a.bw) > 0);
-            if (leaderScore === null || !firstTwoValid || third.bw === '' || third.lift === '') {
-                cell.textContent = '기록 입력 필요';
-                return;
-            }
-            const firstTwoScore = firstTwo.reduce((sum, a) => sum + calcScore(Number(a.gender), Number(a.bw), Number(a.lift)), 0);
-            const f = factor(Number(third.gender), Number(third.bw));
-            if (!Number.isFinite(firstTwoScore) || !(f > 0)) {
-                cell.textContent = '—';
-                return;
-            }
-            const requiredLift = (leaderScore - firstTwoScore) * f / 500;
-            const minimumLift = Math.max(0, Math.floor(requiredLift) + 1);
-            const extra = Math.max(0, minimumLift - Number(third.lift));
-            cell.textContent = extra === 0 ? '현재 기록으로 선두 가능' : `+${extra} kg (총 ${Number(third.lift) + extra} kg)`;
-        });
+        if (rankAvailable) {
+            [1, 2].forEach((athleteIndex, offset) => {
+                // 1번 라운드가 끝나면 2번·3번 모두 필요 기록을 보여주고, 3번은 2번 기록 뒤 계산
+                if (completedRounds < 1)
+                    return;
+                scores.forEach(s => {
+                    const row = [...leaderboardBody.children].find(r => r.dataset.team === String(s.ti));
+                    if (!row)
+                        return;
+                    const cell = row.children[4 + offset];
+                    const target = teamData[s.ti].athletes[athleteIndex];
+                    if (target.bw === '' || !(Number(target.bw) > 0 && Number(target.bw) <= 250)) {
+                        cell.textContent = '체중 입력 필요';
+                        return;
+                    }
+                    const baseScores = teamData[s.ti].athletes.slice(0, athleteIndex).map(athleteScore);
+                    if (baseScores.some(x => !Number.isFinite(x))) {
+                        cell.textContent = '이전 선수 기록 필요';
+                        return;
+                    }
+                    const baseScore = baseScores.reduce((a, b) => a + b, 0);
+                    const opponentScores = teamData.map((team, ti) => {
+                        if (ti === s.ti)
+                            return NaN;
+                        let total = 0;
+                        const opponentRoundLimit = athleteIndex === 2 && completedRounds < 2 ? 1 : athleteIndex;
+                        for (let ai = 0; ai <= opponentRoundLimit; ai++) {
+                            const score = athleteScore(team.athletes[ai]);
+                            if (Number.isFinite(score))
+                                total += score;
+                        }
+                        return total;
+                    }).filter(Number.isFinite);
+                    if (!opponentScores.length) {
+                        cell.textContent = '상대 팀 기록 필요';
+                        return;
+                    }
+                    const leaderScore = Math.max(...opponentScores);
+                    const f = factor(Number(target.gender), Number(target.bw));
+                    if (!(f > 0)) {
+                        cell.textContent = '—';
+                        return;
+                    }
+                    const exact = (leaderScore - baseScore) * f / 500;
+                    const minimumLift = Math.max(0, Math.floor(exact) + 1);
+                    if (target.lift !== '') {
+                        const extra = Math.max(0, minimumLift - Number(target.lift));
+                        cell.textContent = extra === 0 ? `현재 기록으로 선두 가능 · 최소 ${minimumLift} kg` : `총 ${minimumLift} kg 필요 (+${extra.toFixed(1)} kg)`;
+                    } else
+                        cell.textContent = `총 ${minimumLift} kg 필요`;
+                });
+            });
+        }
+        const stageSummary = document.getElementById('stageSummary');
+        if (completedRounds === 0)
+            stageSummary.textContent = '1번 선수 경기 진행 중 · 모든 팀의 1번 선수 기록을 입력하면 순위가 표시됩니다.';
+        else if (completedRounds === 1)
+            stageSummary.textContent = '2번 선수 경기 진행 중 · 순위와 2번 선수 필요 기록이 실시간으로 갱신되며, 2번 기록이 입력된 팀의 3번 선수 필요 기록도 현재 순위에 맞춰 표시됩니다.';
+        else if (completedRounds === 2)
+            stageSummary.textContent = '3번 선수 경기 진행 중 · 1·2번 선수 결과 기준 순위와 3번 선수 필요 기록이 실시간으로 갱신됩니다.';
+        else
+            stageSummary.textContent = '경기 완료 · 최종 순위입니다.';
         const our = scores.find(s => s.ti === Number(ourTeamSelect.value));
         const rank = scores.findIndex(s => s.ti === Number(ourTeamSelect.value)) + 1;
-        ourTeamSummary.textContent = our && our.entered ? `우리 팀 ${our.name}: 현재 ${rank}위 · ${our.sum.toFixed(3)}점 · 입력 선수 ${our.entered}/3명` : '우리 팀의 체중과 기록을 입력하면 현재 순위가 표시됩니다.';
+        ourTeamSummary.textContent = rankAvailable && our ? `우리 팀 ${our.name}: 현재 ${rank}위 · ${our.sum.toFixed(3)}점 · 현재 라운드 ${our.roundEntered ? '완료' : '진행 중'}` : '1번 선수 경기 진행 중입니다.';
     }
     function escapeHtml(s) {
         return String(s).replace(/[&<>"']/g, c => ({
