@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pDOTS 점수 계산기</title>
+<style>
+:root{--bg:#f4f7fb;--card:#fff;--ink:#172033;--muted:#64748b;--line:#dbe3ee;--accent:#1459c7;--accent2:#0b3d91;--soft:#eaf2ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.5}
+header{background:linear-gradient(120deg,#102b54,#1764c0);color:white;padding:28px 18px}
+.wrap{max-width:1000px;margin:auto}
+header h1{margin:0;font-size:clamp(1.55rem,4vw,2.25rem)}
+.brandline{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:7px}
+.team-brand{display:inline-block;border:1px solid #b9d7ff;background:#ffffff1a;color:#fff;border-radius:999px;padding:5px 12px;font-weight:800;letter-spacing:.02em;font-size:clamp(.95rem,2.5vw,1.15rem)}
+header p{margin:0;color:#d9e8ff}
+main{max-width:1000px;margin:22px auto;padding:0 14px 36px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 5px 18px #1c35520a}
+h2{font-size:1.15rem;margin:0 0 14px}
+.methods{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px}
+.method{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--line);padding:13px;border-radius:12px;cursor:pointer}
+.method.selected{border-color:var(--accent);background:var(--soft)}
+.method input{margin-top:5px;accent-color:var(--accent)}
+.method strong{display:block}
+.small{font-size:.88rem;color:var(--muted)}
+.athlete{border:1px solid var(--line);border-radius:12px;padding:15px;margin:12px 0}
+.athlete h3{margin:0 0 12px;font-size:1rem}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:12px}
+label{display:block;font-size:.9rem;font-weight:650;margin-bottom:6px}
+input[type=number],input[type=text],select{width:100%;min-width:0;padding:11px 12px;border:1px solid #cbd5e1;border-radius:9px;font:inherit;background:#fff;color:var(--ink)}
+input:focus,select:focus{outline:2px solid #93c5fd;border-color:var(--accent)}
+.result{background:#edf5ff;border:1px solid #c9defd;border-radius:12px;padding:16px;margin-top:14px}
+.result .number{font-size:2rem;font-weight:800;color:var(--accent2);font-variant-numeric:tabular-nums}
+.result .unit{color:var(--muted);font-weight:650}
+button{border:0;border-radius:10px;background:var(--accent);color:white;font:inherit;font-weight:700;padding:11px 16px;cursor:pointer}
+button:hover{background:var(--accent2)}
+button.secondary{background:#e8edf5;color:#23324a}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.hidden{display:none!important}
+.note{border-left:4px solid #e2a52b;padding:10px 13px;background:#fff9e8;border-radius:0 8px 8px 0;color:#59451a;font-size:.9rem}
+footer{text-align:center;color:var(--muted);font-size:.82rem;padding:0 15px 25px}
+@media(max-width:700px){
+ body{font-size:15px}
+ header{padding:20px 13px}
+ main{margin:12px auto;padding:0 9px 24px}
+ .card{padding:13px;border-radius:13px;margin-bottom:12px}
+ .brandline{gap:8px}
+ header h1{font-size:1.35rem;line-height:1.25}
+ .team-brand{font-size:.9rem;padding:4px 9px}
+ .methods{grid-template-columns:1fr;gap:8px}
+ .method{padding:11px}
+ .fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .athlete{padding:11px}
+ .comp-team-head{padding:10px;gap:8px}
+ .comp-team-head input{width:100%;max-width:none;flex:1 1 100%}
+ .comp-team-body{padding:9px}
+ .comp-athlete{padding:10px 0}
+ .comp-athlete-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+ .comp-athlete-grid input,.comp-athlete-grid select{min-width:0;width:100%;padding:10px 8px;font-size:16px}
+ .comp-athlete-grid label{font-size:.8rem}
+ .comp-score{grid-column:1/-1;padding:3px 0;font-size:.9rem}
+ .actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+ .actions button{width:100%;padding:10px 8px;font-size:.9rem}
+ .result{padding:12px}
+ .result .number{font-size:1.65rem}
+ #leaderboard{min-width:760px}
+ #leaderboard th,#leaderboard td{padding:7px!important;font-size:.82rem}
+ #ourTeamSummary{font-size:.85rem}
+}
+@media(max-width:380px){
+ .fields,.comp-athlete-grid{grid-template-columns:1fr}
+ .comp-score{grid-column:auto}
+ .actions{grid-template-columns:1fr}
+ header h1{font-size:1.22rem}
+}
+.comp-team{border:1px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}
+.comp-team-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f8fafc;padding:12px}
+.comp-team-head input{max-width:240px;flex:1 1 180px}
+.comp-team-body{padding:12px}
+.comp-athlete{border-top:1px solid var(--line);padding:12px 0}
+.comp-athlete:first-child{border-top:0}
+.comp-athlete-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px}
+.comp-athlete-grid label{font-size:.82rem}
+.comp-athlete-grid input,.comp-athlete-grid select{padding:8px;font-size:16px}
+.comp-score{font-weight:800;color:var(--accent2);align-self:end;padding:8px 0}
+tr.our-team{background:#dbeafe;font-weight:750}
+tr.our-team td{border-bottom:1px solid #93c5fd}
+.comp-team-head .tag{font-size:.78rem;background:#eaf2ff;color:#1459c7;padding:3px 8px;border-radius:99px;font-weight:700}
+
+@supports(padding:max(0px)){
+ header{padding-left:max(13px,env(safe-area-inset-left));padding-right:max(13px,env(safe-area-inset-right))}
+ main{padding-left:max(9px,env(safe-area-inset-left));padding-right:max(9px,env(safe-area-inset-right))}
+}
+button{touch-action:manipulation;min-height:44px}
+input,select{font-size:16px}
+table th,table td{vertical-align:top}
+@media(max-width:420px){
+ .comp-team-head{display:grid;grid-template-columns:1fr;align-items:stretch}
+ .comp-team-head input{max-width:none;width:100%}
+ .team-brand{white-space:normal}
+}
+</style>
+</head>
+<body>
+<header><div class="wrap"><div class="brandline"><h1>pDOTS 점수 계산기</h1><span class="team-brand">음성군 역도팀 윤광현</span></div><p>IPC Centre의 Coefficient Formula (pDOTS) 계산 방식 기반 · 오프라인 실행 가능</p></div></header>
+<main>
+<section class="card">
+<h2>계산 방식</h2>
+<div class="methods">
+<label class="method"><input type="radio" name="method" value="4" checked><span><strong>팀 대항전</strong><span class="small">필요한 만큼 팀을 추가해 점수와 순위 비교</span></span></label>
+<label class="method"><input type="radio" name="method" value="1"><span><strong>기록 → 점수</strong><span class="small">개인 경기: 최고 기록으로 pDOTS 계산</span></span></label>
+<label class="method"><input type="radio" name="method" value="2"><span><strong>목표 점수 → 필요 기록</strong><span class="small">개인 경기: 목표 점수에 필요한 최소 kg 계산</span></span></label>
+<label class="method"><input type="radio" name="method" value="3"><span><strong>팀 경기 (3명)</strong><span class="small">선수 3명의 점수를 계산해 합산</span></span></label>
+</div>
+<p class="small" style="margin-bottom:0">체중은 kg, 기록은 kg, 점수는 pts 단위입니다. 선수별 성별 계수가 적용됩니다.</p>
+</section>
+<section class="card">
+<h2>선수 입력</h2>
+<div id="athletes"></div>
+<div id="teamResult" class="result hidden"><div class="small">팀 합계 점수</div><div><span class="number" id="total">0.000</span> <span class="unit">pts</span></div></div>
+<div class="actions"><button id="reset" type="button" class="secondary">입력 초기화</button><button id="example" type="button" class="secondary">예시 입력</button></div>
+</section>
+<section class="card hidden" id="competitionPanel">
+<h2>팀 대항전 점수판</h2>
+<p class="small">처음에는 2팀이 표시됩니다. ‘팀 추가’로 필요한 만큼 팀을 늘릴 수 있으며, 각 팀 선수 3명의 성별·체중·최고 기록을 입력하면 팀 합계와 순위가 자동 갱신됩니다. 3번 선수 추가 필요 중량은 선수 1·2의 점수를 고정하고 현재 1위 팀 합계를 넘기기 위해 필요한 추가 정수 kg을 계산합니다. 우리 팀을 선택하면 점수판에서 강조 표시됩니다.</p>
+<div class="fields" style="margin-bottom:14px">
+  <div><label for="ourTeam">우리 팀 선택</label><select id="ourTeam"></select></div>
+</div>
+<div id="competitionTeams"></div>
+<div class="actions"><button type="button" id="addTeam">+ 팀 추가</button><button type="button" id="removeTeam" class="secondary">마지막 팀 삭제</button><button type="button" id="fillDemo" class="secondary">예시 데이터 입력</button><button type="button" id="clearCompetition" class="secondary">대항전 입력 초기화</button></div>
+<div class="result" style="margin-top:18px">
+  <h3 style="margin:0 0 8px">실시간 순위</h3>
+  <div style="overflow-x:auto"><table id="leaderboard" style="width:100%;border-collapse:collapse;min-width:520px">
+    <thead><tr><th style="text-align:left;padding:9px;border-bottom:1px solid var(--line)">순위</th><th style="text-align:left;padding:9px;border-bottom:1px solid var(--line)">팀</th><th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">합계 (pts)</th><th style="text-align:left;padding:9px;border-bottom:1px solid var(--line)">선수 명단</th><th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">3번 선수 추가 필요 중량</th><th style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">입력 선수</th></tr></thead>
+    <tbody id="leaderboardBody"></tbody>
+  </table></div>
+  <p class="small" id="ourTeamSummary" style="margin-bottom:0"></p>
+</div>
+</section>
+<section class="card">
+<h2>계산 공식</h2>
+<p>체중 보정 계수는 아래 4차 다항식으로 계산됩니다.</p>
+<p><code>F = A × 체중⁴ + B × 체중³ + C × 체중² + D × 체중 + E</code></p>
+<p>기록에서 점수를 계산할 때는 <code>점수 = 기록 × 500 ÷ F</code>를 적용하고, 결과는 소수 셋째 자리로 반올림합니다.</p>
+<p>목표 점수에서 필요한 기록을 계산할 때는 원본 계산기의 올림 및 경계값 보정 절차를 사용합니다.</p>
+<details><summary>성별별 계수 보기</summary>
+<div class="small">
+<p><strong>남성</strong> (A, B, C, D, E)<br><code>-7.93954283e-7, 0.000493457474, -0.1231642956, 16.0233664, 45.59224</code></p>
+<p><strong>여성</strong> (A, B, C, D, E)<br><code>-2.55986906e-6, 0.00116119212, -0.205352889, 17.3690866, 55.4261</code></p>
+</div>
+</details>
+</section>
+<section class="card">
+<h2>사용 시 참고</h2>
+<div class="note">이 파일은 업로드해 주신 IPC 원본 HTML에 포함된 계수와 계산 절차를 옮긴 독립형 계산기입니다. 대회 공식 기록 제출 전에는 최신 IPC 원본 계산기와 결과를 대조해 주세요.</div>
+<p class="small">브라우저에서 파일을 열면 인터넷 연결 없이 계산할 수 있습니다. 입력값은 외부로 전송되지 않습니다. 모바일에서는 순위표를 좌우로 밀어 전체 항목을 확인할 수 있습니다.</p>
+<p class="note"><strong>아이폰에서 화면만 보이고 버튼이 작동하지 않는 경우:</strong> 파일 미리보기에서는 자바스크립트가 실행되지 않을 수 있습니다. 이 파일을 무료 웹 호스팅에 올린 뒤 Safari에서 웹 주소로 열어 주세요.</p>
+</section>
+</main>
+<footer>pDOTS Calculator · 개인 참고용 도구</footer>
+<script>
+const params = {
+  1: {A:-7.93954283e-7, B:0.000493457474, C:-0.1231642956, D:16.0233664, E:45.59224},
+  2: {A:-2.55986906e-6, B:0.00116119212, C:-0.205352889, D:17.3690866, E:55.4261}
+};
+const athletes = document.getElementById('athletes');
+const teamResult = document.getElementById('teamResult');
+const totalEl = document.getElementById('total');
+function method(){return Number(document.querySelector('input[name="method"]:checked').value)}
+function makeAthlete(i){
+ const el=document.createElement('div'); el.className='athlete'; el.dataset.index=i;
+ el.innerHTML=`<h3>선수 ${i+1}</h3><div class="fields">
+ <div><label for="name${i}">선수 이름</label><input id="name${i}" type="text" placeholder="선수 이름 (선택)"></div>
+ <div><label for="gender${i}">스포츠 성별</label><select id="gender${i}"><option value="1">남성</option><option value="2">여성</option></select></div>
+ <div><label for="bw${i}">체중 (kg)</label><input id="bw${i}" type="number" min="0.01" max="250" step="0.01" placeholder="예: 72.50"></div>
+ <div><label for="val${i}" class="val-label">최고 기록 (kg)</label><input id="val${i}" type="number" min="0" max="500" step="0.001" placeholder="예: 120"></div>
+ </div><div class="result"><div class="small result-label">pDOTS 점수</div><div><span class="number" id="res${i}">—</span> <span class="unit result-unit">pts</span></div><div class="small" id="hint${i}"></div></div>`;
+ athletes.appendChild(el);
+ el.querySelectorAll('input,select').forEach(x=>x.addEventListener('input',calculate));
+}
+for(let i=0;i<3;i++) makeAthlete(i);
+function factor(g,bw){
+ const p=params[g];
+ return p.A*Math.pow(bw,4)+p.B*Math.pow(bw,3)+p.C*Math.pow(bw,2)+p.D*bw+p.E;
+}
+function calcScore(g,bw,lift){
+ const f=factor(g,bw);
+ if(!(f>0) || !Number.isFinite(f)) return NaN;
+ return Math.round((lift*500/f)*1000)/1000;
+}
+function calcLift(g,bw,points){
+ const f=factor(g,bw);
+ if(!(f>0) || !Number.isFinite(f) || points<0) return NaN;
+ const exactResult=points*f/500;
+ let ceilLift=Math.ceil(exactResult);
+ const exactPoints=(ceilLift-1)*500/f;
+ const roundedPoints=Math.round(exactPoints*1000)/1000;
+ if(Math.abs(points-roundedPoints)<1e-12) ceilLift--;
+ return ceilLift;
+}
+function calculate(){
+ const m=method(); let total=0; let allValid=true;
+ document.querySelectorAll('.athlete').forEach((el,i)=>{
+  const g=Number(el.querySelector('select').value);
+  const bw=Number(el.querySelector('input[id^="bw"]').value);
+  const valInput=el.querySelector('input[id^="val"]');
+  const val=Number(valInput.value);
+  const label=el.querySelector('.val-label');
+  const resultLabel=el.querySelector('.result-label');
+  const unit=el.querySelector('.result-unit');
+  const res=document.getElementById('res'+i);
+  const hint=document.getElementById('hint'+i);
+  const active=(m===3 || i===0);
+  el.classList.toggle('hidden',!active);
+  label.textContent=m===2?'목표 점수 (pts)':'최고 기록 (kg)';
+  valInput.step=m===2?'0.001':'0.001';
+  resultLabel.textContent=m===2?'필요 기록':'pDOTS 점수';
+  unit.textContent=m===2?'kg':'pts';
+  if(!active){res.textContent='—';hint.textContent='';return;}
+  if(!(bw>0) || valInput.value==='' || !Number.isFinite(val) || val<0 || bw>250 || val>(m===2?1000:500)){
+    res.textContent='—';hint.textContent='체중과 값을 입력해 주세요.';allValid=false;return;
+  }
+  let result=m===2?calcLift(g,bw,val):calcScore(g,bw,val);
+  if(!Number.isFinite(result)){res.textContent='오류';hint.textContent='입력값 또는 보정 계수를 확인하세요.';allValid=false;return;}
+  res.textContent=m===2?String(result):result.toFixed(3);
+  hint.textContent=m===2?'목표 점수에 도달하기 위한 원본 방식의 최소 정수 kg 기준입니다.':'체중 보정 계수 F = '+factor(g,bw).toFixed(5);
+  if(m!==2) total+=result;
+ });
+ teamResult.classList.toggle('hidden',m!==3);
+ if(m===3) totalEl.textContent=allValid?Math.round(total*1000)/1000+'':'입력 필요';
+}
+function refreshMethodCards(){
+ document.querySelectorAll('.method').forEach(card=>{
+  const radio=card.querySelector('input[name="method"]');
+  card.classList.toggle('selected',!!radio && radio.checked);
+ });
+}
+document.querySelectorAll('input[name="method"]').forEach(x=>x.addEventListener('change',()=>{refreshMethodCards();calculate();updateCompetition();}));
+document.getElementById('reset').addEventListener('click',()=>{
+ document.querySelectorAll('.athlete input').forEach(x=>x.value='');
+ document.querySelectorAll('.athlete select').forEach(x=>x.value='1');
+ document.querySelector('input[name="method"][value="1"]').checked=true;
+ calculate();
+});
+document.getElementById('example').addEventListener('click',()=>{
+ const examples=[['1','70.5','90'],['1','75.05','100'],['2','62','80']];
+ examples.forEach((v,i)=>{
+  document.getElementById('gender'+i).value=v[0];
+  document.getElementById('bw'+i).value=v[1];
+  document.getElementById('val'+i).value=v[2];
+ });
+ calculate();
+});
+// 10-team competition mode
+const competitionPanel = document.getElementById('competitionPanel');
+const competitionTeams = document.getElementById('competitionTeams');
+const ourTeamSelect = document.getElementById('ourTeam');
+const leaderboardBody = document.getElementById('leaderboardBody');
+const ourTeamSummary = document.getElementById('ourTeamSummary');
+const teamData = Array.from({length:2}, (_,i)=>({name:`팀 ${i+1}`, athletes:Array.from({length:3},()=>({name:'',gender:'1',bw:'',lift:''}))}));
+function syncOurTeamOptions(){
+ const selected = Number(ourTeamSelect.value || 0);
+ ourTeamSelect.innerHTML='';
+ teamData.forEach((team,i)=>{
+  const opt=document.createElement('option'); opt.value=String(i); opt.textContent=team.name || `팀 ${i+1}`; ourTeamSelect.appendChild(opt);
+ });
+ ourTeamSelect.value=String(Math.min(selected,teamData.length-1));
+}
+function buildCompetitionTeams(){
+ competitionTeams.innerHTML='';
+ syncOurTeamOptions();
+ teamData.forEach((team,ti)=>{
+  const card=document.createElement('div'); card.className='comp-team'; card.dataset.team=ti;
+  card.innerHTML=`<div class="comp-team-head"><strong>팀 ${ti+1}</strong><input type="text" aria-label="팀 ${ti+1} 이름" value="${team.name}" placeholder="팀 이름" data-team-name="${ti}"><span class="tag" id="teamTag${ti}">합계: — pts</span></div><div class="comp-team-body"></div>`;
+  const body=card.querySelector('.comp-team-body');
+  team.athletes.forEach((a,ai)=>{
+   const row=document.createElement('div'); row.className='comp-athlete';
+   row.innerHTML=`<strong>선수 ${ai+1}</strong><div class="comp-athlete-grid">
+    <div><label for="cn${ti}_${ai}">선수 이름</label><input id="cn${ti}_${ai}" type="text" value="${escapeHtml(a.name||'')}" placeholder="선수 이름" data-team="${ti}" data-athlete="${ai}" data-field="name"></div>
+    <div><label for="cg${ti}_${ai}">스포츠 성별</label><select id="cg${ti}_${ai}" data-team="${ti}" data-athlete="${ai}" data-field="gender"><option value="1">남성</option><option value="2">여성</option></select></div>
+    <div><label for="cb${ti}_${ai}">체중 (kg)</label><input id="cb${ti}_${ai}" type="number" min="0.01" max="250" step="0.01" placeholder="예: 72.50" data-team="${ti}" data-athlete="${ai}" data-field="bw"></div>
+    <div><label for="cl${ti}_${ai}">최고 기록 (kg)</label><input id="cl${ti}_${ai}" type="number" min="0" max="500" step="0.001" placeholder="예: 120" data-team="${ti}" data-athlete="${ai}" data-field="lift"></div>
+    <div class="comp-score">점수: <span id="cs${ti}_${ai}">—</span> pts</div>
+   </div>`;
+   body.appendChild(row);
+   row.querySelectorAll('input,select').forEach(inp=>inp.addEventListener('input',()=>{
+    const f=inp.dataset.field; teamData[ti].athletes[ai][f]=inp.value; updateCompetition();
+   }));
+   row.querySelector('select').value=a.gender;
+   row.querySelector('input[data-field="bw"]').value=a.bw;
+   row.querySelector('input[data-field="lift"]').value=a.lift;
+  });
+  card.querySelector('[data-team-name]').addEventListener('input',e=>{
+   teamData[ti].name=e.target.value.trim()||`팀 ${ti+1}`;
+   updateCompetition();
+  });
+  competitionTeams.appendChild(card);
+ });
+ updateCompetition();
+}
+function updateCompetition(){
+ const m=method();
+ competitionPanel.classList.toggle('hidden',m!==4);
+ // Keep normal calculator inputs hidden while showing the competition panel
+ athletes.classList.toggle('hidden',m===4);
+ document.querySelectorAll('.actions').forEach((el)=>{ if(el.parentElement && el.parentElement.querySelector('#athletes')) el.classList.toggle('hidden',m===4); });
+ const scores=teamData.map((team,ti)=>{
+  let sum=0, entered=0;
+  team.athletes.forEach((a,ai)=>{
+   const bw=Number(a.bw), lift=Number(a.lift), valid=a.bw!=='' && a.lift!=='' && bw>0 && bw<=250 && lift>=0 && lift<=500;
+   let score=NaN;
+   if(valid){score=calcScore(Number(a.gender),bw,lift); if(Number.isFinite(score)){sum+=score;entered++;}}
+   const scoreEl=document.getElementById(`cs${ti}_${ai}`);
+   if(scoreEl) scoreEl.textContent=Number.isFinite(score)?score.toFixed(3):'—';
+  });
+  const tag=document.getElementById(`teamTag${ti}`);
+  if(tag) tag.textContent=`합계: ${entered?sum.toFixed(3):'—'} pts`;
+  return {ti,name:team.name||`팀 ${ti+1}`,sum,entered,complete:entered===3};
+ }).sort((a,b)=>b.sum-a.sum);
+ leaderboardBody.innerHTML='';
+ scores.forEach((s,index)=>{
+  const tr=document.createElement('tr'); tr.dataset.team=String(s.ti);
+  if(s.ti===Number(ourTeamSelect.value)) tr.className='our-team';
+  const roster=teamData[s.ti].athletes.map((a,ai)=>a.name.trim()||`선수 ${ai+1}`).join(', ');
+  tr.innerHTML=`<td style="padding:9px;border-bottom:1px solid var(--line)">${s.entered?index+1:'—'}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${escapeHtml(s.name)}${s.ti===Number(ourTeamSelect.value)?' ★':''}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${s.entered?s.sum.toFixed(3):'—'}</td><td style="padding:9px;border-bottom:1px solid var(--line);font-size:.85rem">${escapeHtml(roster)}</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">계산 중</td><td style="text-align:right;padding:9px;border-bottom:1px solid var(--line)">${s.entered}/3</td>`;
+  leaderboardBody.appendChild(tr);
+ });
+ const leader=scores.find(s=>s.entered===3);
+ const leaderScore=leader?leader.sum:null;
+ // 선수 1·2의 점수는 고정하고, 3번 선수가 현재 1위 팀 합계를 넘기기 위해 필요한 추가 정수 kg 계산
+ scores.forEach(s=>{
+  const row=[...leaderboardBody.children].find(r=>r.dataset.team===String(s.ti));
+  if(!row) return;
+  const cell=row.children[4];
+  const third=teamData[s.ti].athletes[2];
+  const firstTwo=teamData[s.ti].athletes.slice(0,2);
+  const firstTwoValid=firstTwo.every(a=>a.bw!=='' && a.lift!=='' && Number(a.bw)>0);
+  if(leaderScore===null || !firstTwoValid || third.bw==='' || third.lift===''){
+   cell.textContent='기록 입력 필요'; return;
+  }
+  const firstTwoScore=firstTwo.reduce((sum,a)=>sum+calcScore(Number(a.gender),Number(a.bw),Number(a.lift)),0);
+  const f=factor(Number(third.gender),Number(third.bw));
+  if(!Number.isFinite(firstTwoScore) || !(f>0)){cell.textContent='—';return;}
+  const requiredLift=(leaderScore-firstTwoScore)*f/500;
+  const minimumLift=Math.max(0,Math.floor(requiredLift)+1);
+  const extra=Math.max(0,minimumLift-Number(third.lift));
+  cell.textContent=extra===0?'현재 기록으로 선두 가능':`+${extra} kg (총 ${Number(third.lift)+extra} kg)`;
+ });
+ const our=scores.find(s=>s.ti===Number(ourTeamSelect.value));
+ const rank=scores.findIndex(s=>s.ti===Number(ourTeamSelect.value))+1;
+ ourTeamSummary.textContent=our&&our.entered?`우리 팀 ${our.name}: 현재 ${rank}위 · ${our.sum.toFixed(3)}점 · 입력 선수 ${our.entered}/3명`:'우리 팀의 체중과 기록을 입력하면 현재 순위가 표시됩니다.';
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+ourTeamSelect.addEventListener('change',updateCompetition);
+document.getElementById('addTeam').addEventListener('click',()=>{
+ if(teamData.length>=50){alert('팀은 최대 50개까지 추가할 수 있습니다.');return;}
+ const i=teamData.length;
+ teamData.push({name:`팀 ${i+1}`,athletes:Array.from({length:3},()=>({name:'',gender:'1',bw:'',lift:''}))});
+ buildCompetitionTeams();
+});
+document.getElementById('removeTeam').addEventListener('click',()=>{
+ if(teamData.length<=2){alert('팀 대항전은 최소 2팀이 필요합니다.');return;}
+ teamData.pop();
+ buildCompetitionTeams();
+});
+document.getElementById('fillDemo').addEventListener('click',()=>{
+ const demo=[
+  [['1','70.5','90'],['1','75.05','100'],['2','62','80']],
+  [['1','80','105'],['2','58','72'],['1','68','85']],
+  [['2','55','65'],['1','92','120'],['1','74','95']],
+  [['1','66','82'],['2','63','78'],['1','83','110']]
+ ];
+ while(teamData.length<4) teamData.push({name:`팀 ${teamData.length+1}`,athletes:Array.from({length:3},()=>({name:'',gender:'1',bw:'',lift:''}))});
+ teamData.splice(4);
+ teamData.forEach((t,ti)=>{
+  t.name=`팀 ${ti+1}`;
+  t.athletes.forEach((a,ai)=>{
+   [a.gender,a.bw,a.lift]=demo[ti][ai];
+   a.name=`선수 ${ai+1}`;
+  });
+ });
+ buildCompetitionTeams();
+});
+document.getElementById('clearCompetition').addEventListener('click',()=>{
+ teamData.forEach((t,ti)=>{t.name=`팀 ${ti+1}`;t.athletes.forEach(a=>{a.name='';a.gender='1';a.bw='';a.lift='';});});
+ buildCompetitionTeams();
+});
+
+buildCompetitionTeams();
+refreshMethodCards();
+calculate();
+</script>
+</body>
+</html>
